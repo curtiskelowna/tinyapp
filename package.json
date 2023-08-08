@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/curtiskelowna/tinyapp/issues"
   },
-  "homepage": "https://github.com/curtiskelowna/tinyapp#readme"
+  "homepage": "https://github.com/curtiskelowna/tinyapp#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
 }
