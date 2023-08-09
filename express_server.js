@@ -21,38 +21,37 @@ const urlDatabase = {
 };
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());  
+app.use(cookieParser());
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
-});
-
-app.get("/", (req, res) => {
-  res.send("Hello!");
 });
 
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
+app.get("/u/:id", (req, res) => {
+  const shortURL = req.params.id;
+  const longURL = urlDatabase[shortURL];
+  res.redirect(longURL);
 });
 
-app.get("/urls", (req, res) => {
-  const templateVars = { urls: urlDatabase };
-  res.render("urls_index", templateVars);
+app.get("/", (req, res) => {
+  res.redirect("/urls");
 });
 
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new");
+  const templateVars = { username: req.cookies["username"] };
+  res.render("urls_new", templateVars);
 });
 
-app.get("/urls/:id", (req, res) => {
-  const id = req.params.id;
-  const longURL = urlDatabase[id];
-  const templateVars = { id: id, longURL: longURL };
-  res.render("urls_show", templateVars);
+app.get("/urls", (req, res) => {
+  const templateVars = {
+    urls: urlDatabase,
+    username: req.cookies["username"]
+  };
+  res.render("urls_index", templateVars);
 });
 
 app.post("/urls", (req, res) => {
@@ -64,16 +63,17 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortURL}`);
 });
 
-app.get("/u/:id", (req, res) => {
-  const shortURL = req.params.id;
-  const longURL = urlDatabase[shortURL];
-  res.redirect(longURL);
-});
-
 app.post("/urls/:id/delete", (req, res) => {
   const id = req.params.id;
   delete urlDatabase[id];
   res.redirect("/urls");
+});
+
+app.get("/urls/:id", (req, res) => {
+  const id = req.params.id;
+  const longURL = urlDatabase[id];
+  const templateVars = { id: id, longURL: longURL, username: req.cookies["username"] };
+  res.render("urls_show", templateVars);
 });
 
 app.post("/urls/:id", (req, res) => {
@@ -91,7 +91,7 @@ app.post("/login", (req, res) => {
   res.redirect("/urls");
 });
 
-app.get("urls", (req, res) => {
-  const templateVars = { username: req.cookies["username"] };
-  res.render("urls_index", templateVars);
+app.post("/logout", (req, res) => {
+  res.clearCookie("username");
+  res.redirect("/urls");
 });
