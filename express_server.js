@@ -106,11 +106,16 @@ app.post("/urls/:id", (req, res) => {
   res.redirect("/urls");
 });
 
+app.get("/login", (req, res) => {
+  const templateVars = { user_id: req.cookies["user_id"] };
+  res.render("urls_login", templateVars);
+});
+
 app.post("/login", (req, res) => {
-  const user = getUserByEmail(users, req.body.email);
-  if (!user) {
-    res.status(400).send();
-    return undefined;
+  let user = getUserByEmail(users, req.body.email);
+  if (!user || req.body.email === "" || req.body.password === "") {
+    res.status(400).send("HTTP ERROR 400: This page isn't working.");
+    return;
   }
   res.cookie("user_id", user.id);
   res.redirect("/urls");
