@@ -48,6 +48,14 @@ const getUserByEmail = function(users, email) {
   }
 };
 
+const lookUpUser = function(email, password) {
+  for (let id in users) {
+    if (users[id].email === email && users[id].password === password) {
+      return users[id];
+    }
+  }
+};
+
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
@@ -112,10 +120,13 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  let user = getUserByEmail(users, req.body.email);
+  let user = lookUpUser(req.body.email, req.body.password);
+  const email = req.body.email;
+  const password = req.body.password;
   if (!user || req.body.email === "" || req.body.password === "") {
-    res.status(400).send("HTTP ERROR 400: This page isn't working.");
-    return;
+    res.status(403).send("HTTP ERROR 403: This page isn't working.");
+  } else if (email !== user.email || password !== user.password) {
+    res.status(403).send("HTTP ERROR 403: This page isn't working.");
   }
   res.cookie("user_id", user.id);
   res.redirect("/urls");
