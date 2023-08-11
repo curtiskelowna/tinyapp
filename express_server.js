@@ -2,6 +2,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const app = express();
 const PORT = 8080; // default port 8080
+const bcrypt = require("bcryptjs");
 
 app.set("view engine", "ejs");
 
@@ -54,9 +55,9 @@ const getUserByEmail = function(users, email) {
   }
 };
 
-const lookUpUser = function(email, password) {
+const lookUpUser = function(email) {
   for (let id in users) {
-    if (users[id].email === email && users[id].password === password) {
+    if (users[id].email === email) {
       return users[id];
     }
   }
@@ -85,7 +86,8 @@ app.get("/urls", (req, res) => {
   const userURLs = urlsForUser(userID);
   const templateVars = {
     urls: userURLs,
-    user_id: req.cookies["user_id"]
+    user_id: req.cookies["user_id"],
+    user: users[req.cookies.user_id]
   };
   if (!req.cookies["user_id"]) {
     res.redirect("/login");
@@ -99,7 +101,7 @@ app.get("/urls/new", (req, res) => {
   if (!user) {
     res.redirect("/login");
   } else {
-    const templateVars = { user_id: req.cookies["user_id"] };
+    const templateVars = { user: users[req.cookies.user_id] };
     res.render("urls_new", templateVars);
   }
 });
@@ -152,7 +154,9 @@ app.get("/urls/:id", (req, res) => {
   }
   if (currentUser === urlDatabase[id].userID) {
     const longURL = urlDatabase[id].longURL;
-    const templateVars = { id: id, longURL: longURL, user_id: currentUser };
+    const templateVars = {
+      id: id, longURL: longURL, user: users[req.cookies.user_id]
+    };
     return res.render("urls_show", templateVars);
   } else {
     return res.status(403).send("HTTP ERROR 403: You do not have authorization to view this.");
@@ -176,19 +180,55 @@ app.post("/urls/:id", (req, res) => {
   }
 });
 
+app.get("/register", (req, res) => {
+  if (req.cookies.user_id) {
+    res.redirect("/urls");
+  } else {
+    const templateVars = {
+      user: users[req.cookies.user_id]
+    };
+    res.render("urls_registration", templateVars);
+  }
+});
+
+app.post("/register", (req, res) => {
+  const user = lookUpUser(req.body.email);
+  const hashedPassword = bcrypt.hashSync(req.body.password, 10);
+  if (user || !req.body.email || !req.body.password) {
+    return res.status(400).send("HTTP ERROR 400: Invalid registration details.");
+  } else {
+    const id = generateRandomString();
+    const email = req.body.email;
+    const newUser = {
+      id: id,
+      email: email,
+      password: hashedPassword
+    };
+    users[id] = newUser;
+    console.log(users);
+    res.cookie("user_id", id);
+    res.redirect("/urls");
+  }
+});
+
 app.get("/login", (req, res) => {
   if (req.cookies.user_id) {
     res.redirect("/urls");
   } else {
-    const templateVars = { user_id: req.cookies["user_id"] };
+    const templateVars = {
+      user: users[req.cookies.user_id]
+    };
     res.render("urls_login", templateVars);
   }
 });
 
 app.post("/login", (req, res) => {
-  const user = lookUpUser(req.body.email, req.body.password);
+  const user = lookUpUser(req.body.email);
   if (!user) {
     return res.status(403).send("HTTP ERROR 403: Invalid credentials, please register if you don't have an account.");
+  }
+  if (!bcrypt.compareSync(req.body.password, user.password)) {
+    return res.status(400).send("HTTP ERROR 400: Invalid credentials.");
   }
   res.cookie("user_id", user.id);
   res.redirect("/urls");
@@ -197,32 +237,4 @@ app.post("/login", (req, res) => {
 app.post("/logout", (req, res) => {
   res.clearCookie("user_id");
   res.redirect("/login");
-});
-
-app.get("/register", (req, res) => {
-  if (req.cookies.user_id) {
-    res.redirect("/urls");
-  } else {
-    const templateVars = { user_id: req.cookies["user_id"] };
-    res.render("urls_registration", templateVars);
-  }
-});
-
-app.post("/register", (req, res) => {
-  let user = getUserByEmail(users, req.body.email);
-  if (user || req.body.email === "" || req.body.password === "") {
-    res.status(400).send("HTTP ERROR 400: Invalid registration details.");
-    return;
-  }
-  const id = generateRandomString();
-  const email = req.body.email;
-  const password = req.body.password;
-  const newUser = {
-    id: id,
-    email: email,
-    password: password
-  };
-  users[id] = newUser;
-  res.cookie("user_id", id);
-  res.redirect("/urls");
 });
