@@ -1,5 +1,5 @@
 const express = require("express");
-const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
 const app = express();
 const PORT = 8080; // default port 8080
 const bcrypt = require("bcryptjs");
@@ -22,7 +22,10 @@ const urlDatabase = {
 };
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: "session",
+  keys: ["key1", "key2"],
+}));
 
 const users = {
   userRandomID: {
@@ -82,14 +85,14 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  const userID = req.cookies["user_id"];
+  const userID = req.session.user_id;
   const userURLs = urlsForUser(userID);
   const templateVars = {
     urls: userURLs,
-    user_id: req.cookies["user_id"],
-    user: users[req.cookies.user_id]
+    user_id: req.session.user_id,
+    user: users[req.session.user_id]
   };
-  if (!req.cookies["user_id"]) {
+  if (!req.session.user_id) {
     res.redirect("/login");
   } else {
     res.render("urls_index", templateVars);
@@ -97,11 +100,11 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if (!user) {
     res.redirect("/login");
   } else {
-    const templateVars = { user: users[req.cookies.user_id] };
+    const templateVars = { user: users[req.session.user_id] };
     res.render("urls_new", templateVars);
   }
 });
@@ -118,17 +121,17 @@ app.get("/u/:id", (req, res) => {
 
 app.post("/urls", (req, res) => {
   const shortURL = generateRandomString();
-  if (!users[req.cookies["user_id"]]) {
+  if (!users[req.session.user_id]) {
     res.status(401).send("HTTP ERROR 401: You are not logged in.");
   } else {
-    urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.cookies["user_id"] };
+    urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id };
     res.redirect(`/urls/${shortURL}`);
   }
 });
 
 app.post("/urls/:id/delete", (req, res) => {
   const id = req.params.id;
-  const currentUser = req.cookies["user_id"];
+  const currentUser = req.session.user_id;
   if (!currentUser) {
     return res.status(401).send("HTTP ERROR 401: You are not logged in.");
   }
@@ -145,7 +148,7 @@ app.post("/urls/:id/delete", (req, res) => {
 
 app.get("/urls/:id", (req, res) => {
   const id = req.params.id;
-  const currentUser = req.cookies["user_id"];
+  const currentUser = req.session.user_id;
   if (!currentUser) {
     return res.status(401).send("HTTP ERROR 401: Please log in.");
   }
@@ -155,7 +158,7 @@ app.get("/urls/:id", (req, res) => {
   if (currentUser === urlDatabase[id].userID) {
     const longURL = urlDatabase[id].longURL;
     const templateVars = {
-      id: id, longURL: longURL, user: users[req.cookies.user_id]
+      id: id, longURL: longURL, user: users[req.session.user_id]
     };
     return res.render("urls_show", templateVars);
   } else {
@@ -165,7 +168,7 @@ app.get("/urls/:id", (req, res) => {
 
 app.post("/urls/:id", (req, res) => {
   const id = req.params.id;
-  const currentUser = req.cookies["user_id"];
+  const currentUser = req.session.user_id;
   if (!currentUser) {
     return res.status(401).send("HTTP ERROR 401: Please log in.");
   }
@@ -181,11 +184,11 @@ app.post("/urls/:id", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  if (req.cookies.user_id) {
+  if (req.session.user_id) {
     res.redirect("/urls");
   } else {
     const templateVars = {
-      user: users[req.cookies.user_id]
+      user: users[req.session.user_id]
     };
     res.render("urls_registration", templateVars);
   }
@@ -206,17 +209,17 @@ app.post("/register", (req, res) => {
     };
     users[id] = newUser;
     console.log(users);
-    res.cookie("user_id", id);
+    req.session.user_id = id;
     res.redirect("/urls");
   }
 });
 
 app.get("/login", (req, res) => {
-  if (req.cookies.user_id) {
+  if (req.session.user_id) {
     res.redirect("/urls");
   } else {
     const templateVars = {
-      user: users[req.cookies.user_id]
+      user: users[req.session.user_id]
     };
     res.render("urls_login", templateVars);
   }
@@ -230,11 +233,11 @@ app.post("/login", (req, res) => {
   if (!bcrypt.compareSync(req.body.password, user.password)) {
     return res.status(400).send("HTTP ERROR 400: Invalid credentials.");
   }
-  res.cookie("user_id", user.id);
+  req.session.user_id = user.id;
   res.redirect("/urls");
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/login");
 });
